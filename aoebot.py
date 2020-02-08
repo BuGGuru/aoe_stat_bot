@@ -183,38 +183,53 @@ while True:
                 # The opponent side is for all user the same
                 # The own team side is variable (the user we ask for is the first one)
                 split = simple_match.split(" -VS- ")
-                # if split 1 is not in the matches variable - its the first time see this match
+                # If split 1 is not in the matches variable - its the first time see this match
                 if split[1] not in str(matches):
                     message = "New Match: " + str(simple_match)
                     # CLI output
                     print(message)
+                    # Check if its a 1v1
                     if game["last_match"]["num_players"] == 2:
+                        # If announce_solo_games is true we send out a message
                         if announce_solo_games:
                             send_message(broadcast_channel, message)
+                    # If it is not a 1v1 send message to channel
                     else:
                         send_message(broadcast_channel, message)
-
+                    # Add the match to matches so we can skip it next time
                     matches.append(simple_match)
+            # If it is an AI game we just print it to the CLI
             else:
                 print("Game VS AI")
 
         # If game is done, check the leaderboard
+        # "finished" is NULL as long as the game is going on
         elif game and game["last_match"]["finished"]:
+            # Check if we already saw this game
             if last_game_end_time < game["last_match"]["finished"]:
                 print("Last game is done for", user.name)
+                # We need to remember the finish time from last game
+                # so we do not post its finish multiple times
                 last_game_end_time = game["last_match"]["finished"]
+                # Setup the leaderboard check
+                # We want to check the leaderboard after some time to give it space to update on the API side
                 check_leaderboard = True
                 check_leaderboard_timestamp = int(time())
 
+    # Check leaderboard if its 5 minutes after last game finish
     if check_leaderboard and (int(time()) - check_leaderboard_timestamp >= 300):
         print("Checking leaderboard!")
         broadcast = False
         check_leaderboard = False
         check_leaderboard_timestamp = 0
 
+        # Check stats for every user
         for user in user_list:
+            # Leaderboard 3 = 1v1 ladder
             player = get_player_stats(3, user.profile_id)
 
+            # Player True = Got API response
+            # Player False = no API response
             if player:
                 for entry in player["leaderboard"]:
                     if user.rating_solo != entry["rating"]:
@@ -239,9 +254,13 @@ while True:
 
                     db.commit()
 
+        # Check stats for every user
         for user in user_list:
+            # Leaderboard 4 = Team ladder
             player = get_player_stats(4, user.profile_id)
 
+            # Player True = Got API response
+            # Player False = no API response
             if player:
                 for entry in player["leaderboard"]:
                     if user.rating_team != entry["rating"]:
@@ -272,8 +291,11 @@ while True:
             for user in user_list:
                 if user.rating_solo:
                     user_list_with_rating.append(user)
+
+            # Sort the user-list on rating
             user_list_sorted = sorted(user_list_with_rating, key=lambda x: x.rating_solo, reverse=True)
 
+            # Construct the leaderboard post
             leaderboard_solo = "1v1 Leaderboard:\n----------------------\n"
             for user in user_list_sorted:
                 if user.rating_solo:
@@ -291,8 +313,11 @@ while True:
             for user in user_list:
                 if user.rating_team:
                     user_list_with_rating.append(user)
+
+            # Sort the user-list on rating
             user_list_sorted = sorted(user_list_with_rating, key=lambda x: x.rating_team, reverse=True)
 
+            # Construct the leaderboard post
             leaderboard_team = "Team Leaderboard:\n------------------------\n"
             for user in user_list_sorted:
                 if user.rating_team:
@@ -305,10 +330,12 @@ while True:
                     else:
                         leaderboard_team = leaderboard_team + "Rank: {} Rating: {} {}\n".format(user.rank_team, user.rating_team, user.name)
 
+            # Send out the leaderboard
             one_msg = leaderboard_solo + "\n" + leaderboard_team
             send_message(broadcast_channel, one_msg)
             print("Braodcasted the leaderboard!")
 
+            # Update the user ratings in the database
             for user in user_list:
                 if user.rating_solo:
                     user.rating_solo_announced = user.rating_solo
@@ -320,4 +347,6 @@ while True:
                     cursor.execute(sqlquery)
 
                 db.commit()
+
+    # Wait 60 Seconds between checks
     sleep(60)
