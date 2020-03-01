@@ -188,6 +188,10 @@ while True:
                     message = "New Match: " + str(simple_match)
                     # CLI output
                     print(message)
+                    # Log to database
+                    sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message)
+                    cursor.execute(sqlquery)
+                    db.commit()
                     # Check if its a 1v1
                     if game["last_match"]["num_players"] == 2:
                         # If announce_solo_games is true we send out a message
