@@ -14,6 +14,7 @@ game_running = False
 last_game_end_time = time()
 announce_solo_games = False
 check_leaderboard_timestamp = 0
+restarted = True
 
 ###########
 # Configs #
@@ -221,7 +222,8 @@ while True:
                 check_leaderboard_timestamp = int(time())
 
     # Check leaderboard if its 5 minutes after last game finish
-    if check_leaderboard and (int(time()) - check_leaderboard_timestamp >= 300):
+    # or after a restart
+    if check_leaderboard and (int(time()) - check_leaderboard_timestamp >= 300) or restarted:
         print("Checking leaderboard!")
         broadcast = False
         check_leaderboard = False
@@ -351,6 +353,6 @@ while True:
                     cursor.execute(sqlquery)
 
                 db.commit()
-
+        restarted = False
     # Wait 60 Seconds between checks
     sleep(60)
