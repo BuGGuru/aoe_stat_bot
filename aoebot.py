@@ -190,7 +190,8 @@ while True:
                     # CLI output
                     print(message)
                     # Log to database
-                    sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message)
+                    message_clean = message.encode('utf-8', 'ignore')
+                    sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message_clean)
                     cursor.execute(sqlquery)
                     db.commit()
                     # Check if its a 1v1
