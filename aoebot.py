@@ -136,10 +136,16 @@ def send_message(chat, message_func):
         print("Error: Could not set message!")
         return False
 
-
 #######
 # Bot #
 #######
+
+# Check for team game
+def check_teamgame(lobby_id):
+    for user in user_list:
+        if user.last_lobby == lobby_id:
+            return True
+    return False
 
 # Get enabled users from database
 sqlquery = "select * from users"
@@ -173,19 +179,15 @@ while True:
         if game and not game["last_match"]["finished"] and user.last_lobby != game["last_match"]["lobby_id"]:
             # CLI output
             print("Unfinished game found for", user.name)
-            # Set lobby id to track it
-            user.last_lobby = game["last_match"]["lobby_id"]
             # Get the match string vom aoe2.net api
             simple_match = get_match_simple(user.profile_id)
             # Ignore if game vs AI
             if not simple_match == "AI games not supported":
                 # Make sure its not a team game to avoid double posts
-                # We split the api response up to check the opponent side
-                # The opponent side is for all user the same
-                # The own team side is variable (the user we ask for is the first one)
-                split = simple_match.split(" -VS- ")
-                # If split 1 is not in the matches variable - its the first time see this match
-                if split[1] not in str(matches):
+                if check_teamgame(game["last_match"]["lobby_id"]):
+                    # Set lobby id to track it
+                    user.last_lobby = game["last_match"]["lobby_id"]
+                else:
                     message = "New Match: " + str(simple_match)
                     # CLI output
                     print(message)
@@ -202,8 +204,8 @@ while True:
                     # If it is not a 1v1 send message to channel
                     else:
                         send_message(broadcast_channel, message)
-                    # Add the match to matches so we can skip it next time
-                    matches.append(simple_match)
+                    # Set lobby id to track it
+                    user.last_lobby = game["last_match"]["lobby_id"]
             # If it is an AI game we just print it to the CLI
             else:
                 print("Game VS AI")
