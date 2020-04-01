@@ -34,7 +34,8 @@ db = mysql.connector.connect(host=dbhost,
                              port=dbport,
                              database=database,
                              user=dbuser,
-                             password=dbpass)
+                             password=dbpass,
+                             charset="utf8mb4")
 cursor = db.cursor()
 
 # Telegram token
@@ -130,10 +131,27 @@ def get_messages(offset_func):
 # Send message to a chat
 def send_message(chat, message_func):
     try:
-        requests.get("https://api.telegram.org/bot" + str(tgbot_token) + "/sendMessage?chat_id=" + str(chat) + "&text=" + str(message_func))
+        api_response = requests.get("https://api.telegram.org/bot" + str(tgbot_token) + "/sendMessage?chat_id=" + str(chat) + "&text=" + str(message_func))
+        api_response = api_response.json()
+
+        # Log to database
+        sqlquery = "INSERT INTO logs (type, message, telegram_message_id) VALUES (\"{}\", \"{}\", \"{}\")".format("message", api_response, api_response["result"]["message_id"])
+        cursor.execute(sqlquery)
+        db.commit()
+
         return True
     except:
-        print("Error: Could not set message!")
+        print("Error: Could not send message!")
+        return False
+
+# Edit telegram message
+def edit_message(chat, message_id, message_func):
+    try:
+        api_response = requests.get("https://api.telegram.org/bot{}/editMessageText?chat_id={}&message_id={}&text={}".format(tgbot_token, chat, message_id, message_func))
+        print(api_response.text)
+        return True
+    except:
+        print("Error: Could not edit message!")
         return False
 
 #######
@@ -182,7 +200,7 @@ while True:
             # Get the match string vom aoe2.net api
             simple_match = get_match_simple(user.profile_id)
             # Ignore if game vs AI
-            if not simple_match == "AI games not supported":
+            if not simple_match == "Game type not supported (AI)":
                 # Make sure its not a team game to avoid double posts
                 if check_teamgame(game["last_match"]["lobby_id"]):
                     # Set lobby id to track it
@@ -192,8 +210,7 @@ while True:
                     # CLI output
                     print(message)
                     # Log to database
-                    message_clean = message.encode('utf-8', 'ignore')
-                    sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message_clean)
+                    sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message)
                     cursor.execute(sqlquery)
                     db.commit()
                     # Check if its a 1v1
@@ -342,7 +359,7 @@ while True:
             # Send out the leaderboard
             one_msg = leaderboard_solo + "\n" + leaderboard_team
             send_message(broadcast_channel, one_msg)
-            print("Braodcasted the leaderboard!")
+            print("Broadcasted the leaderboard!")
 
             # Update the user ratings in the database
             for user in user_list:
