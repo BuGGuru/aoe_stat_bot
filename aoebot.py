@@ -34,9 +34,12 @@ db = mysql.connector.connect(host=dbhost,
                              port=dbport,
                              database=database,
                              user=dbuser,
-                             password=dbpass,
-                             charset="utf8mb4")
+                             password=dbpass)
 cursor = db.cursor()
+cursor.execute("SET NAMES utf8mb4;")
+cursor.execute("SET CHARACTER SET utf8mb4;")
+cursor.execute("SET character_set_connection=utf8mb4;")
+
 
 # Telegram token
 sqlquery = "SELECT config_value FROM configs WHERE config_name = 'telegram_token'"
