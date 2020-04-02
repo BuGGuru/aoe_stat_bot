@@ -40,7 +40,6 @@ cursor.execute("SET NAMES utf8mb4;")
 cursor.execute("SET CHARACTER SET utf8mb4;")
 cursor.execute("SET character_set_connection=utf8mb4;")
 
-
 # Telegram token
 sqlquery = "SELECT config_value FROM configs WHERE config_name = 'telegram_token'"
 cursor.execute(sqlquery)
@@ -246,7 +245,7 @@ while True:
 
     # Check leaderboard if its 5 minutes after last game finish
     # or after a restart
-    if check_leaderboard and (int(time()) - check_leaderboard_timestamp >= 300) or restarted:
+    if check_leaderboard and (int(time()) - check_leaderboard_timestamp >= 180) or restarted:
         print("Checking leaderboard!")
         broadcast = False
         check_leaderboard = False
@@ -293,10 +292,41 @@ while True:
             if player:
                 for entry in player["leaderboard"]:
                     if user.rating_team != entry["rating"]:
+
+                        # Calc the rating diff
+                        user_rating_diff = entry["rating"] - user.rating_team
+
+                        # Set the new user rating
                         user.rating_team = entry["rating"]
                         sqlquery = "UPDATE users SET rating_team = '{}' WHERE name = '{}'".format(user.rating_team, user.name)
                         cursor.execute(sqlquery)
                         print("Set {} team rating to {} - Update time: {}".format(user.name, user.rating_team, user.last_update))
+
+                        # Edit last posted game to show win or lose
+                        # Select telegram_message_id from last game this player participated in
+                        sqlquery = "SELECT telegram_message_id FROM logs WHERE type = 'message' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
+                        cursor.execute(sqlquery)
+                        records = cursor.fetchone()
+                        telegram_message_id = records[0]
+                        print("The message ID to EDIT = {}".format(telegram_message_id))
+
+                        # Get last match so we can construct the new message
+                        sqlquery = "SELECT message FROM logs WHERE type = 'match' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
+                        cursor.execute(sqlquery)
+                        records = cursor.fetchone()
+                        last_match_message = records[0]
+                        print("Last match was {}".format(last_match_message))
+
+                        # Construct new message
+                        if user_rating_diff > 0:
+                            game_result = "\n==> Gewonnen!! \U0001F3C6 \U0001F4AA"
+                        else:
+                            game_result = "\n==> Verloren! \U0001F44E \U0001F44E"
+                        message_edited = last_match_message + game_result
+
+                        # Use edit function to post new message
+                        edit_message(broadcast_channel, telegram_message_id, message_edited)
+
                     if abs(user.rating_team-user.rating_team_announced) > 50:
                         broadcast = True
 
