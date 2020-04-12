@@ -271,10 +271,42 @@ while True:
             if player:
                 for entry in player["leaderboard"]:
                     if user.rating_solo != entry["rating"]:
+
+                        # Calc the rating diff
+                        user_rating_diff = entry["rating"] - user.rating_solo
+
+                        # Set the new user rating
                         user.rating_solo = entry["rating"]
                         sqlquery = "UPDATE users SET rating_solo = '{}' WHERE name = '{}'".format(user.rating_solo, user.name)
                         cursor.execute(sqlquery)
                         print("Set {} solo rating to {} - Update time: {}".format(user.name, user.rating_solo, user.last_update))
+
+                        if announce_solo_games:
+                            # Edit last posted game to show win or lose
+                            # Select telegram_message_id from last game this player participated in
+                            sqlquery = "SELECT telegram_message_id FROM logs WHERE type = 'message' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
+                            cursor.execute(sqlquery)
+                            records = cursor.fetchone()
+                            telegram_message_id = records[0]
+                            print("The message ID to EDIT = {}".format(telegram_message_id))
+
+                            # Get last match so we can construct the new message
+                            sqlquery = "SELECT message FROM logs WHERE type = 'match' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
+                            cursor.execute(sqlquery)
+                            records = cursor.fetchone()
+                            last_match_message = records[0]
+                            print("Last match was {}".format(last_match_message))
+
+                            # Construct new message
+                            if user_rating_diff > 0:
+                                game_result = "\n==> Gewonnen!! \U0001F3C6 \U0001F4AA"
+                            else:
+                                game_result = "\n==> Verloren! \U0001F44E \U0001F44E"
+                            message_edited = last_match_message + game_result
+
+                            # Use edit function to post new message
+                            edit_message(broadcast_channel, telegram_message_id, message_edited)
+
                     if abs(user.rating_solo-user.rating_solo_announced) > 50:
                         broadcast = True
 
