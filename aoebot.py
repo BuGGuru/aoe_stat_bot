@@ -218,9 +218,13 @@ while True:
                     # CLI output
                     print(message)
                     # Log to database
-                    sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message)
-                    cursor.execute(sqlquery)
-                    db.commit()
+                    try:
+                        sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message)
+                        cursor.execute(sqlquery)
+                        db.commit()
+                    except Exception as error:
+                        print("Problem inserting last match to database! ")
+                        print("Error: {}".format(error))
                     # Check if its a 1v1
                     if game["last_match"]["num_players"] == 2:
                         # If announce_solo_games is true we send out a message
