@@ -82,8 +82,9 @@ def get_leaderboard(leaderboard_id, start, count):
         print(api_url)
         api_response = requests.get(api_url)
         return api_response.json()
-    except:
+    except Exception as error:
         print("Got no data from the API!")
+        print("Error in get_leaderboard(): {}".format(error))
         return False
 
 # Get a the stats from a player
@@ -92,9 +93,11 @@ def get_player_stats(leaderboard_id, profile_id):
         api_url = "https://aoe2.net/api/leaderboard?game=aoe2de&leaderboard_id={}&profile_id={}".format(leaderboard_id, profile_id)
         api_response = requests.get(api_url)
         return api_response.json()
-    except:
+    except Exception as error:
         print("Got no data from the API!")
+        print("Error in get_player_stats(): {}".format(error))
         return False
+
 
 # Get the most recent full game info
 def get_last_match(profile_id):
@@ -102,9 +105,11 @@ def get_last_match(profile_id):
         api_url = "https://aoe2.net/api/player/lastmatch?game=aoe2de&profile_id={}".format(profile_id)
         api_response = requests.get(api_url)
         return api_response.json()
-    except:
+    except Exception as error:
         print("Got no data from the API!")
+        print("Error in get_last_match(): {}".format(error))
         return False
+
 
 # Get a simple matchup string i.e: " Player 1 as CIV VS Player 2 as CIV on MAP"
 def get_match_simple(profile_id):
@@ -112,8 +117,9 @@ def get_match_simple(profile_id):
         api_url = "https://aoe2.net/api/nightbot/match?profile_id={}".format(profile_id)
         api_response = requests.get(api_url)
         return api_response.text
-    except:
+    except Exception as error:
         print("Got no data from the API!")
+        print("Error in get_match_simple(): {}".format(error))
         return False
 
 ####################
@@ -126,8 +132,8 @@ def get_messages(offset_func):
         offset_url = "https://api.telegram.org/bot" + str(tgbot_token) + "/getUpdates?offset=" + offset_func
         bot_messages = requests.get(offset_url)
         return bot_messages.json()
-    except:
-        print("Error: Telegram API failed!")
+    except Exception as error:
+        print("Error in get_messages(): {}".format(error))
         return False
 
 # Send message to a chat
@@ -142,8 +148,8 @@ def send_message(chat, message_func):
         db.commit()
 
         return True
-    except:
-        print("Error: Could not send message!")
+    except Exception as error:
+        print("Error in send_message(): {}".format(error))
         return False
 
 # Edit telegram message
@@ -152,8 +158,8 @@ def edit_message(chat, message_id, message_func):
         api_response = requests.get("https://api.telegram.org/bot{}/editMessageText?chat_id={}&message_id={}&text={}".format(tgbot_token, chat, message_id, message_func))
         print(api_response.text)
         return True
-    except:
-        print("Error: Could not edit message!")
+    except Exception as error:
+        print("Error in edit_message(): {}".format(error))
         return False
 
 #######
