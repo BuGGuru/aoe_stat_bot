@@ -143,7 +143,7 @@ def send_message(chat, message_func):
         api_response = api_response.json()
 
         # Log to database
-        sqlquery = "INSERT INTO logs (type, message, telegram_message_id) VALUES (\"{}\", \"{}\", \"{}\")".format("message", api_response, api_response["result"]["message_id"])
+        sqlquery = "INSERT INTO logs (type, message, telegram_message_id) VALUES (\"{}\", \"{}\", \"{}\")".format("message", api_response["result"]["text"], api_response["result"]["message_id"])
         cursor.execute(sqlquery)
         db.commit()
 
