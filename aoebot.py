@@ -253,7 +253,7 @@ while True:
                 check_leaderboard = True
                 check_leaderboard_timestamp = int(time())
 
-    # Check leaderboard if its 5 minutes after last game finish
+    # Check leaderboard if its 3 minutes after last game finish
     # or after a restart
     if check_leaderboard and (int(time()) - check_leaderboard_timestamp >= 180) or restarted:
         print("Checking leaderboard!")
@@ -288,14 +288,12 @@ while True:
                             cursor.execute(sqlquery)
                             records = cursor.fetchone()
                             telegram_message_id = records[0]
-                            print("The message ID to EDIT = {}".format(telegram_message_id))
 
                             # Get last match so we can construct the new message
                             sqlquery = "SELECT message FROM logs WHERE type = 'match' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
                             cursor.execute(sqlquery)
                             records = cursor.fetchone()
                             last_match_message = records[0]
-                            print("Last match was {}".format(last_match_message))
 
                             # Construct new message
                             if user_rating_diff > 0:
