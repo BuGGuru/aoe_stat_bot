@@ -13,7 +13,7 @@ matches = []
 game_running = False
 last_game_end_time = time()
 announce_solo_games = False
-check_leaderboard_timestamp = 0
+check_leaderboard_times = 0
 restarted = True
 
 ###########
@@ -198,7 +198,7 @@ while True:
 
     # Check if user has an unfinished game
     for user in user_list:
-        # Get all infos into the variable game to have access without triggering the api
+        # Get all info into the variable game to have access without triggering the api
         game = get_last_match(user.profile_id)
         # Check if the game is still running
         # Also check if this lobby is know so we do not post games multiple times to the chat
@@ -243,23 +243,23 @@ while True:
         # "finished" is NULL as long as the game is going on
         elif game and game["last_match"]["finished"]:
             # Check if we already saw this game
+            # Note: The time updates multiple times on the api
             if last_game_end_time < game["last_match"]["finished"]:
                 print("Last game is done for", user.name)
                 # We need to remember the finish time from last game
                 # so we do not post its finish multiple times
                 last_game_end_time = game["last_match"]["finished"]
                 # Setup the leaderboard check
-                # We want to check the leaderboard after some time to give it space to update on the API side
-                check_leaderboard = True
-                check_leaderboard_timestamp = int(time())
+                # We want to check the leaderboard more times since we do not know when it updates
+                if check_leaderboard_times == 0:
+                    check_leaderboard_times = 5
 
-    # Check leaderboard if its 3 minutes after last game finish
+    # Check leaderboard if there was a game
     # or after a restart
-    if check_leaderboard and (int(time()) - check_leaderboard_timestamp >= 180) or restarted:
+    if check_leaderboard_times > 0 or restarted:
         print("Checking leaderboard!")
         broadcast = False
-        check_leaderboard = False
-        check_leaderboard_timestamp = 0
+        check_leaderboard_times = check_leaderboard_times - 1
 
         # Check stats for every user
         for user in user_list:
