@@ -251,7 +251,7 @@ while True:
                 last_game_end_time = game["last_match"]["finished"]
                 # Setup the leaderboard check
                 # We want to check the leaderboard more times since we do not know when it updates
-                if check_leaderboard_times == 0:
+                if check_leaderboard_times <= 0:
                     check_leaderboard_times = 5
 
     # Check leaderboard if there was a game
