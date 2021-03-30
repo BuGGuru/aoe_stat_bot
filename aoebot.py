@@ -3,17 +3,21 @@ import configparser
 import mysql.connector
 from datetime import datetime
 from time import sleep, time
+import json
+from types import SimpleNamespace
 
-## For the time being
+# Globals needed
 user_names = []
 user_list = []
 broadcast = False
 check_leaderboard = False
-matches = []
-game_running = False
-last_game_end_time = time()
-announce_solo_games = False
+matches_to_check = []
+matches_processed = []
 check_leaderboard_times = 0
+
+# Configure these
+amount_matches_to_check = 2
+announce_solo_games = False
 restarted = True
 
 ###########
@@ -88,6 +92,8 @@ def get_leaderboard(leaderboard_id, start, count):
         return False
 
 # Get a the stats from a player
+# leaderboard_id 3 = solo
+# leaderboard_id 4 = group
 def get_player_stats(leaderboard_id, profile_id):
     try:
         api_url = "https://aoe2.net/api/leaderboard?game=aoe2de&leaderboard_id={}&profile_id={}".format(leaderboard_id, profile_id)
@@ -97,7 +103,6 @@ def get_player_stats(leaderboard_id, profile_id):
         print("Got no data from the API!")
         print("Error in get_player_stats(): {}".format(error))
         return False
-
 
 # Get the most recent full game info
 def get_last_match(profile_id):
@@ -110,6 +115,16 @@ def get_last_match(profile_id):
         print("Error in get_last_match(): {}".format(error))
         return False
 
+# Get the last x game info
+def get_last_matches(profile_id, amount):
+    try:
+        api_url = "https://aoe2.net/api/player/matches?game=aoe2de&profile_id={}&count={}".format(profile_id, amount)
+        api_response = requests.get(api_url)
+        return api_response.json()
+    except Exception as error:
+        print("Got no data from the API!")
+        print("Error in get_last_matches(): {}".format(error))
+        return False
 
 # Get a simple matchup string i.e: " Player 1 as CIV VS Player 2 as CIV on MAP"
 def get_match_simple(profile_id):
@@ -120,6 +135,28 @@ def get_match_simple(profile_id):
     except Exception as error:
         print("Got no data from the API!")
         print("Error in get_match_simple(): {}".format(error))
+        return False
+
+# Get details about a specific match_id
+def get_match_info(match_id):
+    try:
+        api_url = "https://aoe2.net/api/match?id={}".format(match_id)
+        api_response = requests.get(api_url)
+        return api_response.json()
+    except Exception as error:
+        print("Got no data from the API!")
+        print("Error in get_match_info(): {}".format(error))
+        return False
+
+# Get API specific strings
+def get_string_info():
+    try:
+        api_url = "https://aoe2.net/api/strings?game=aoe2de&language=en"
+        api_response = requests.get(api_url)
+        return api_response.json()
+    except Exception as error:
+        print("Got no data from the API!")
+        print("Error in get_match_info(): {}".format(error))
         return False
 
 ####################
@@ -147,7 +184,7 @@ def send_message(chat, message_func):
         cursor.execute(sqlquery)
         db.commit()
 
-        return True
+        return api_response["result"]["message_id"]
     except Exception as error:
         print("Error in send_message(): {}".format(error))
         return False
@@ -194,69 +231,204 @@ while True:
         print("Reconnected to Database")
 
     # ClI output to see some action
+    print("----------------- Search for games -----------------")
     print("Checking Games -", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    print("Games to Check from previous iteration:", matches_to_check)
+    print("Games processed:", matches_processed)
 
-    # Check if user has an unfinished game
+    # Check if new games were played
     for user in user_list:
-        # Get all info into the variable game to have access without triggering the api
-        game = get_last_match(user.profile_id)
-        # Check if the game is still running
-        # Also check if this lobby is know so we do not post games multiple times to the chat
-        if game and not game["last_match"]["finished"] and user.last_lobby != game["last_match"]["lobby_id"]:
-            # CLI output
-            print("Unfinished game found for", user.name)
-            # Get the match string vom aoe2.net api
-            simple_match = get_match_simple(user.profile_id)
-            # Ignore if game vs AI
-            if not simple_match == "Game type not supported (AI)":
-                # Make sure its not a team game to avoid double posts
-                if check_teamgame(game["last_match"]["lobby_id"]):
-                    # Set lobby id to track it
-                    user.last_lobby = game["last_match"]["lobby_id"]
-                else:
-                    message = "New Match: " + str(simple_match)
+        games = get_last_matches(user.profile_id, amount_matches_to_check)
+
+        for game in games:
+            if not game["match_id"] in matches_to_check and not game["match_id"] in matches_processed:
+                print("New game found for", user.name)
+                matches_to_check.append(game["match_id"])
+                # Post the new found game
+                if not restarted:
+                    game_object = json.dumps(game)
+                    game_object = json.loads(game_object, object_hook=lambda d: SimpleNamespace(**d))
+
+                    team1 = ""
+                    team2 = ""
+                    translation = get_string_info()
+
+                    for player in game_object.players:
+
+                        # Get player rankings
+                        if game_object.num_players == 2:
+                            player_ranking_highest = str(get_player_stats(3, player.profile_id)["leaderboard"][0]["highest_rating"])
+                        else:
+                            player_ranking_highest = str(get_player_stats(4, player.profile_id)["leaderboard"][0]["highest_rating"])
+
+                        # Sort teams
+                        if player.team == 1:
+                            if team1 == "":
+                                team1 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                            else:
+                                team1 = team1 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                        if player.team == 2:
+                            if team2 == "":
+                                team2 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                            else:
+                                team2 = team2 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+
+                    # Find map
+                    for entry in translation["map_type"]:
+                        if entry["id"] == game_object.map_type:
+                            aoemap = entry["string"]
+                            break
+
+                    # Construct message
+                    message = "New game on " + aoemap + ":\n\n" + team1 + "---------------- vs ---------------- \n" + team2
+
                     # CLI output
                     print(message)
+
+                    # Check if its a 1v1
+                    if game_object.num_players == 2:
+                        # If announce_solo_games is true we send out a message
+                        if announce_solo_games:
+                            message_id = send_message(broadcast_channel, message)
+                    # It is a team game, send message to channel
+                    else:
+                        message_id = send_message(broadcast_channel, message)
+
                     # Log to database
                     try:
-                        sqlquery = "INSERT INTO logs (type, message) VALUES (\"{}\", \"{}\")".format("match", message)
+                        sqlquery = "INSERT INTO logs (type, message, telegram_message_id, match_id) VALUES (\"{}\", \"{}\", \"{}\", \"{}\")".format("match", message, message_id, game_object.match_id)
                         cursor.execute(sqlquery)
                         db.commit()
                     except Exception as error:
                         print("Problem inserting last match to database! ")
                         print("Error: {}".format(error))
-                    # Check if its a 1v1
-                    if game["last_match"]["num_players"] == 2:
-                        # If announce_solo_games is true we send out a message
-                        if announce_solo_games:
-                            send_message(broadcast_channel, message)
-                    # If it is not a 1v1 send message to channel
-                    else:
-                        send_message(broadcast_channel, message)
-                    # Set lobby id to track it
-                    user.last_lobby = game["last_match"]["lobby_id"]
-            # If it is an AI game we just print it to the CLI
-            else:
-                print("Game VS AI")
+        else:
+            print("We have seen this game already!")
 
-        # If game is done, check the leaderboard
-        # "finished" is NULL as long as the game is going on
-        elif game and game["last_match"]["finished"]:
-            # Check if we already saw this game
-            # Note: The time updates multiple times on the api
-            if last_game_end_time < game["last_match"]["finished"]:
-                print("Last game is done for", user.name)
-                # We need to remember the finish time from last game
-                # so we do not post its finish multiple times
-                last_game_end_time = game["last_match"]["finished"]
-                # Setup the leaderboard check
-                # We want to check the leaderboard more times since we do not know when it updates
-                if check_leaderboard_times <= 0:
-                    check_leaderboard_times = 5
+    print("-------------- Start evaluating games --------------")
+    print("Games to Check:", matches_to_check)
+    print("Games processed:", matches_processed)
+    indexer = 0
+    loop_list = list.copy(matches_to_check)
+    for match_id in loop_list:
+        print("Indexer:", indexer)
+        print("Match id:", match_id)
+        match_info = get_match_info(match_id)
+        # Look for finished matches
+        if match_info["finished"]:
+            print("Match is finished")
+            # Check if victory is announced
+            check_next_match = False
+            for player in match_info["players"]:
+                if check_next_match:
+                    break
+                print("Player id to search for:", player["profile_id"])
+                for user in user_list:
+                    print("Taking player from list to compare:", user.profile_id)
+                    if int(user.profile_id) == int(player["profile_id"]):
+                        # Found user in match_info
+                        print("Found user:", user.name)
+
+                        # Check win/lost condition
+                        if str(player["won"]) == "None":
+                            # The game is not yet processed
+                            print("Winner is not determined yet.")
+                            indexer = indexer + 1
+
+                        elif player["won"]:
+                            # The game was won
+                            print("The game was won!")
+                            won = 1
+
+                            # Get match message so we can construct the new message
+                            try:
+                                sqlquery = "SELECT message, telegram_message_id FROM logs WHERE type = 'match' AND match_id = '{}' ORDER BY `id` DESC LIMIT 1;".format(match_id)
+                                cursor.execute(sqlquery)
+                                records = cursor.fetchone()
+                                match_message = records[0]
+                                telegram_message_id = records[1]
+                                game_result = "\n==> Gewonnen!! \U0001F3C6 \U0001F4AA"
+                                message_edited = match_message + game_result
+                                # Use edit function to post new message
+                                edit_message(broadcast_channel, telegram_message_id, message_edited)
+                            except Exception as error:
+                                print("Problem editing Message!")
+                                print("Error: {}".format(error))
+
+                            # Log to database
+                            try:
+                                sqlquery = "INSERT INTO matches (match_id, won) VALUES (\"{}\", \"{}\")".format(match_id, won)
+                                cursor.execute(sqlquery)
+                                db.commit()
+                                matches_to_check.pop(indexer)
+                                print("Popped item from list!")
+                                matches_processed.append(match_id)
+                                print("Added item to processed list!")
+                            except mysql.connector.IntegrityError as error:
+                                print("Error: {}".format(error))
+                                matches_to_check.pop(indexer)
+                                print("Popped item from list!")
+                                matches_processed.append(match_id)
+                                print("Added item to processed list!")
+                            except Exception as error:
+                                print("Problem inserting last match to database! ")
+                                print("Error: {}".format(error))
+                            finally:
+                                check_leaderboard_times = 10
+                        else:
+                            # The game was lost
+                            print("A game was lost by:", user.name)
+                            won = 0
+
+                            # Get match message so we can construct the new message
+                            try:
+                                sqlquery = "SELECT message, telegram_message_id FROM logs WHERE type = 'match' AND match_id = '{}' ORDER BY `id` DESC LIMIT 1;".format(
+                                    match_id)
+                                cursor.execute(sqlquery)
+                                records = cursor.fetchone()
+                                match_message = records[0]
+                                telegram_message_id = records[1]
+                                game_result = "\n==> Verloren! \U0001F44E \U0001F44E"
+                                message_edited = match_message + game_result
+                                # Use edit function to post new message
+                                edit_message(broadcast_channel, telegram_message_id, message_edited)
+                            except Exception as error:
+                                print("Problem editing Message!")
+                                print("Error: {}".format(error))
+
+                            # Log to database
+                            try:
+                                sqlquery = "INSERT INTO matches (match_id, won) VALUES (\"{}\", \"{}\")".format(match_id, won)
+                                cursor.execute(sqlquery)
+                                db.commit()
+                                matches_to_check.pop(indexer)
+                                print("Popped item from list!")
+                                matches_processed.append(match_id)
+                                print("Added item to processed list!")
+                            except mysql.connector.IntegrityError as error:
+                                print("Error: {}".format(error))
+                                matches_to_check.pop(indexer)
+                                print("Popped item from list!")
+                                matches_processed.append(match_id)
+                                print("Added item to processed list!")
+                            except Exception as error:
+                                print("Problem inserting last match to database! ")
+                                print("Error: {}".format(error))
+                            finally:
+                                check_leaderboard_times = 10
+
+                        print("Games to Check:", matches_to_check)
+                        print("Games processed:", matches_processed)
+                        print("We found the user to this game, so we break out!")
+                        check_next_match = True
+                        break
+    print("-------------- Evaluating games done ---------------")
+    amount_matches_to_check = 1
 
     # Check leaderboard if there was a game
     # or after a restart
     if check_leaderboard_times > 0 or restarted:
+        print("-------------- Start leaderboard stuff -------------")
         print("Checking leaderboard!")
         broadcast = False
         check_leaderboard_times = check_leaderboard_times - 1
@@ -280,30 +452,6 @@ while True:
                         sqlquery = "UPDATE users SET rating_solo = '{}' WHERE name = '{}'".format(user.rating_solo, user.name)
                         cursor.execute(sqlquery)
                         print("Set {} solo rating to {} - Update time: {}".format(user.name, user.rating_solo, user.last_update))
-
-                        if announce_solo_games:
-                            # Edit last posted game to show win or lose
-                            # Select telegram_message_id from last game this player participated in
-                            sqlquery = "SELECT telegram_message_id FROM logs WHERE type = 'message' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
-                            cursor.execute(sqlquery)
-                            records = cursor.fetchone()
-                            telegram_message_id = records[0]
-
-                            # Get last match so we can construct the new message
-                            sqlquery = "SELECT message FROM logs WHERE type = 'match' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
-                            cursor.execute(sqlquery)
-                            records = cursor.fetchone()
-                            last_match_message = records[0]
-
-                            # Construct new message
-                            if user_rating_diff > 0:
-                                game_result = "\n==> Gewonnen!! \U0001F3C6 \U0001F4AA"
-                            else:
-                                game_result = "\n==> Verloren! \U0001F44E \U0001F44E"
-                            message_edited = last_match_message + game_result
-
-                            # Use edit function to post new message
-                            edit_message(broadcast_channel, telegram_message_id, message_edited)
 
                     if abs(user.rating_solo-user.rating_solo_announced) > 50:
                         broadcast = True
@@ -341,29 +489,6 @@ while True:
                         sqlquery = "UPDATE users SET rating_team = '{}' WHERE name = '{}'".format(user.rating_team, user.name)
                         cursor.execute(sqlquery)
                         print("Set {} team rating to {} - Update time: {}".format(user.name, user.rating_team, user.last_update))
-
-                        # Edit last posted game to show win or lose
-                        # Select telegram_message_id from last game this player participated in
-                        sqlquery = "SELECT telegram_message_id FROM logs WHERE type = 'message' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
-                        cursor.execute(sqlquery)
-                        records = cursor.fetchone()
-                        telegram_message_id = records[0]
-
-                        # Get last match so we can construct the new message
-                        sqlquery = "SELECT message FROM logs WHERE type = 'match' AND message LIKE '%{}%' ORDER BY `id` DESC LIMIT 1;".format(user.name)
-                        cursor.execute(sqlquery)
-                        records = cursor.fetchone()
-                        last_match_message = records[0]
-
-                        # Construct new message
-                        if user_rating_diff > 0:
-                            game_result = "\n==> Gewonnen!! \U0001F3C6 \U0001F4AA"
-                        else:
-                            game_result = "\n==> Verloren! \U0001F44E \U0001F44E"
-                        message_edited = last_match_message + game_result
-
-                        # Use edit function to post new message
-                        edit_message(broadcast_channel, telegram_message_id, message_edited)
 
                     if abs(user.rating_team-user.rating_team_announced) > 50:
                         broadcast = True
@@ -444,6 +569,7 @@ while True:
                     cursor.execute(sqlquery)
 
                 db.commit()
+        print("-------------- Leaderboard stuff done --------------")
         restarted = False
     # Wait 60 Seconds between checks
     sleep(60)
