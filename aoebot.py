@@ -239,71 +239,71 @@ while True:
     # Check if new games were played
     for user in user_list:
         games = get_last_matches(user.profile_id, amount_matches_to_check)
+        if games:
+            for game in games:
+                if not game["match_id"] in matches_to_check and not game["match_id"] in matches_processed:
+                    print("New game found for", user.name)
+                    matches_to_check.append(game["match_id"])
+                    # Post the new found game
+                    if not restarted:
+                        game_object = json.dumps(game)
+                        game_object = json.loads(game_object, object_hook=lambda d: SimpleNamespace(**d))
 
-        for game in games:
-            if not game["match_id"] in matches_to_check and not game["match_id"] in matches_processed:
-                print("New game found for", user.name)
-                matches_to_check.append(game["match_id"])
-                # Post the new found game
-                if not restarted:
-                    game_object = json.dumps(game)
-                    game_object = json.loads(game_object, object_hook=lambda d: SimpleNamespace(**d))
+                        team1 = ""
+                        team2 = ""
+                        translation = get_string_info()
 
-                    team1 = ""
-                    team2 = ""
-                    translation = get_string_info()
+                        for player in game_object.players:
 
-                    for player in game_object.players:
+                            # Get player rankings
+                            if game_object.num_players == 2:
+                                player_ranking_highest = str(get_player_stats(3, player.profile_id)["leaderboard"][0]["highest_rating"])
+                            else:
+                                player_ranking_highest = str(get_player_stats(4, player.profile_id)["leaderboard"][0]["highest_rating"])
 
-                        # Get player rankings
+                            # Sort teams
+                            if player.team == 1:
+                                if team1 == "":
+                                    team1 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                                else:
+                                    team1 = team1 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                            if player.team == 2:
+                                if team2 == "":
+                                    team2 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                                else:
+                                    team2 = team2 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+
+                        # Find map
+                        for entry in translation["map_type"]:
+                            if entry["id"] == game_object.map_type:
+                                aoemap = entry["string"]
+                                break
+
+                        # Construct message
+                        message = "New game on " + aoemap + ":\n\n" + team1 + "---------------- vs ---------------- \n" + team2
+
+                        # CLI output
+                        print(message)
+
+                        # Check if its a 1v1
                         if game_object.num_players == 2:
-                            player_ranking_highest = str(get_player_stats(3, player.profile_id)["leaderboard"][0]["highest_rating"])
+                            # If announce_solo_games is true we send out a message
+                            if announce_solo_games:
+                                message_id = send_message(broadcast_channel, message)
+                        # It is a team game, send message to channel
                         else:
-                            player_ranking_highest = str(get_player_stats(4, player.profile_id)["leaderboard"][0]["highest_rating"])
-
-                        # Sort teams
-                        if player.team == 1:
-                            if team1 == "":
-                                team1 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
-                            else:
-                                team1 = team1 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
-                        if player.team == 2:
-                            if team2 == "":
-                                team2 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
-                            else:
-                                team2 = team2 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
-
-                    # Find map
-                    for entry in translation["map_type"]:
-                        if entry["id"] == game_object.map_type:
-                            aoemap = entry["string"]
-                            break
-
-                    # Construct message
-                    message = "New game on " + aoemap + ":\n\n" + team1 + "---------------- vs ---------------- \n" + team2
-
-                    # CLI output
-                    print(message)
-
-                    # Check if its a 1v1
-                    if game_object.num_players == 2:
-                        # If announce_solo_games is true we send out a message
-                        if announce_solo_games:
                             message_id = send_message(broadcast_channel, message)
-                    # It is a team game, send message to channel
-                    else:
-                        message_id = send_message(broadcast_channel, message)
 
-                    # Log to database
-                    try:
-                        sqlquery = "INSERT INTO logs (type, message, telegram_message_id, match_id) VALUES (\"{}\", \"{}\", \"{}\", \"{}\")".format("match", message, message_id, game_object.match_id)
-                        cursor.execute(sqlquery)
-                        db.commit()
-                    except Exception as error:
-                        print("Problem inserting last match to database! ")
-                        print("Error: {}".format(error))
-        else:
-            print("We have seen this game already!")
+                        # Log to database
+                        try:
+                            sqlquery = "INSERT INTO logs (type, message, telegram_message_id, match_id) VALUES (\"{}\", \"{}\", \"{}\", \"{}\")".format("match", message, message_id, game_object.match_id)
+                            cursor.execute(sqlquery)
+                            db.commit()
+                        except Exception as error:
+                            print("Problem inserting last match to database! ")
+                            print("Error: {}".format(error))
+                else:
+                    print("We have seen this game already!")
 
     print("-------------- Start evaluating games --------------")
     print("Games to Check:", matches_to_check)
