@@ -17,8 +17,8 @@ check_leaderboard_times = 0
 
 # Configure these
 amount_matches_to_check = 2
-announce_solo_games = False
-restarted = True
+announce_solo_games = True
+restarted = False
 
 ###########
 # Configs #
@@ -257,7 +257,7 @@ while True:
 
                             # Get player rankings
                             if game_object.num_players == 2:
-                                player_ranking_highest = str(get_player_stats(3, player.profile_id)["leaderboard"]["highest_rating"])
+                                player_ranking_highest = str(get_player_stats(3, player.profile_id)["leaderboard"][0]["highest_rating"])
                             else:
                                 player_ranking_highest = str(get_player_stats(4, player.profile_id)["leaderboard"][0]["highest_rating"])
 
