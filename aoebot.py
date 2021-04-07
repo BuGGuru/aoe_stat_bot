@@ -293,6 +293,9 @@ while True:
                         # CLI output
                         print(message)
 
+                        # Clear Message ID
+                        message_id = None
+
                         # Check if its a 1v1
                         if game_object.num_players == 2:
                             # If announce_solo_games is true we send out a message
