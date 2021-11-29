@@ -97,6 +97,7 @@ def get_leaderboard(leaderboard_id, start, count):
 def get_player_stats(leaderboard_id, profile_id):
     try:
         api_url = "https://aoe2.net/api/leaderboard?game=aoe2de&leaderboard_id={}&profile_id={}".format(leaderboard_id, profile_id)
+        print(api_url)
         api_response = requests.get(api_url)
         return api_response.json()
     except Exception as error:
@@ -108,6 +109,7 @@ def get_player_stats(leaderboard_id, profile_id):
 def get_last_match(profile_id):
     try:
         api_url = "https://aoe2.net/api/player/lastmatch?game=aoe2de&profile_id={}".format(profile_id)
+        print(api_url)
         api_response = requests.get(api_url)
         return api_response.json()
     except Exception as error:
@@ -119,6 +121,7 @@ def get_last_match(profile_id):
 def get_last_matches(profile_id, amount):
     try:
         api_url = "https://aoe2.net/api/player/matches?game=aoe2de&profile_id={}&count={}".format(profile_id, amount)
+        print(api_url)
         api_response = requests.get(api_url)
         return api_response.json()
     except Exception as error:
@@ -130,6 +133,7 @@ def get_last_matches(profile_id, amount):
 def get_match_simple(profile_id):
     try:
         api_url = "https://aoe2.net/api/nightbot/match?profile_id={}".format(profile_id)
+        print(api_url)
         api_response = requests.get(api_url)
         return api_response.text
     except Exception as error:
@@ -141,6 +145,7 @@ def get_match_simple(profile_id):
 def get_match_info(match_id):
     try:
         api_url = "https://aoe2.net/api/match?id={}".format(match_id)
+        print(api_url)
         api_response = requests.get(api_url)
         return api_response.json()
     except Exception as error:
@@ -152,6 +157,7 @@ def get_match_info(match_id):
 def get_string_info():
     try:
         api_url = "https://aoe2.net/api/strings?game=aoe2de&language=en"
+        print(api_url)
         api_response = requests.get(api_url)
         return api_response.json()
     except Exception as error:
@@ -211,7 +217,7 @@ def check_teamgame(lobby_id):
     return False
 
 # Get enabled users from database
-sqlquery = "select * from users"
+sqlquery = "select * from users where enabled"
 cursor.execute(sqlquery)
 records = cursor.fetchall()
 
@@ -272,14 +278,14 @@ while True:
                             # Sort teams
                             if player.team == 1:
                                 if team1 == "":
-                                    team1 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                                    team1 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                                 else:
-                                    team1 = team1 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                                    team1 = team1 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                             if player.team == 2:
                                 if team2 == "":
-                                    team2 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                                    team2 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                                 else:
-                                    team2 = team2 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ]["string"] + "\n"
+                                    team2 = team2 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
 
                         # Find map
                         for entry in translation["map_type"]:
@@ -345,6 +351,7 @@ while True:
                             # The game is not yet processed
                             print("Winner is not determined yet.")
                             indexer = indexer + 1
+                            print(match_info)
 
                         elif player["won"]:
                             # The game was won
