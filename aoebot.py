@@ -280,14 +280,14 @@ while True:
                             # Sort teams
                             if player.team == 1:
                                 if team1 == "":
-                                    team1 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
+                                    team1 = player.name + " (" + player_ranking_now + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                                 else:
-                                    team1 = team1 + player.name + " (" + player_ranking_highest + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
+                                    team1 = team1 + player.name + " (" + player_ranking_now + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                             if player.team == 2:
                                 if team2 == "":
-                                    team2 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
+                                    team2 = player.name + " (" + player_ranking_now + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                                 else:
-                                    team2 = team2 + player.name + " (" + player_ranking_highest + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
+                                    team2 = team2 + player.name + " (" + player_ranking_now + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
 
                         # Find map
                         for entry in translation["map_type"]:
