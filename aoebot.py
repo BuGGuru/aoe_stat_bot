@@ -265,12 +265,14 @@ while True:
                             if game_object.num_players == 2:
                                 try:
                                     player_ranking_highest = str(get_player_stats(3, player.profile_id)["leaderboard"][0]["highest_rating"])
+                                    player_ranking_now = str(get_player_stats(3, player.profile_id)["leaderboard"][0]["rating"])
                                 except Exception as error:
                                     print("(get_player_stats(): {}".format(error))
                                     player_ranking_highest = "None"
                             else:
                                 try:
                                     player_ranking_highest = str(get_player_stats(4, player.profile_id)["leaderboard"][0]["highest_rating"])
+                                    player_ranking_now = str(get_player_stats(4, player.profile_id)["leaderboard"][0]["rating"])
                                 except Exception as error:
                                     print("(get_player_stats(): {}".format(error))
                                     player_ranking_highest = "None"
@@ -280,12 +282,12 @@ while True:
                                 if team1 == "":
                                     team1 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                                 else:
-                                    team1 = team1 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
+                                    team1 = team1 + player.name + " (" + player_ranking_highest + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                             if player.team == 2:
                                 if team2 == "":
                                     team2 = player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
                                 else:
-                                    team2 = team2 + player.name + " (" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
+                                    team2 = team2 + player.name + " (" + player_ranking_highest + "/" + player_ranking_highest + ")" + " as " + translation["civ"][player.civ-1]["string"] + "\n"
 
                         # Find map
                         for entry in translation["map_type"]:
